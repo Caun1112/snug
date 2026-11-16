@@ -19,28 +19,28 @@ struct SettingsView: View {
                 }
             }
             Section {
-                Toggle(isOn: binding(state.config.phoneScreen, intents.setPhoneScreen)) {
+                Toggle(isOn: binding(state.config.phoneScreen, { intents.setPhoneScreen($0) })) {
                     SettingLabel("手机屏", detail: "UU远程 中增加竖屏", symbol: "iphone", tint: .blue)
                 }
                 LabeledContent {
-                    PhoneMenu(current: state.config.phone, phones: state.phones, choose: intents.setPhone)
+                    PhoneMenu(current: state.config.phone, phones: state.phones, choose: { intents.setPhone($0) })
                 } label: {
                     SettingLabel("手机型号", detail: "手机屏按它调整比例", symbol: "iphone.gen3", tint: .indigo)
                 }
                 .disabled(!state.config.phoneScreen)
-                Toggle(isOn: binding(state.config.gestures, intents.setGestures)) {
+                Toggle(isOn: binding(state.config.gestures, { intents.setGestures($0) })) {
                     SettingLabel("触控手势", detail: "单指滚动 · 长按选择 · 长按松开右键", symbol: "hand.draw.fill", tint: .orange)
                 }
                 .disabled(!state.config.phoneScreen)
                 LabeledContent {
-                    ZoomSlider(steps: binding(state.config.zoomSteps, intents.setZoomSteps))
+                    ZoomSlider(steps: binding(state.config.zoomSteps, { intents.setZoomSteps($0) }))
                 } label: {
                     SettingLabel("字号放大", detail: "终端、编辑器", symbol: "textformat.size", tint: .green)
                 }
                 .disabled(!state.config.phoneScreen)
             }
             Section {
-                Toggle(isOn: binding(state.launchAtLogin, intents.setLaunchAtLogin)) {
+                Toggle(isOn: binding(state.launchAtLogin, { intents.setLaunchAtLogin($0) })) {
                     SettingLabel("开机启动", symbol: "power", tint: .gray)
                 }
                 // 没授权时「授权…」在顶部状态里，这里只写状态
@@ -68,11 +68,16 @@ struct SettingsView: View {
         var list: [Issue] = []
         if state.legacyAppRunning {
             list.append(Issue(id: "legacy", text: StatusText(headline: "旧版「UU远程伴侣」运行中", detail: "与 Snug 同时运行将相互干扰"),
-                              action: ("退出旧版", intents.quitLegacyApp)))
+                              action: ("退出旧版", { intents.quitLegacyApp() })))
         }
         if let issue = state.loginItemIssue {
-            list.append(Issue(id: "login", text: issue.text,
-                              action: issue == .needsApproval ? ("前往允许", intents.openLoginItemsSettings) : nil))
+            let action: (title: String, run: @MainActor () -> Void)?
+            if issue == .needsApproval {
+                action = ("前往允许", { intents.openLoginItemsSettings() })
+            } else {
+                action = nil
+            }
+            list.append(Issue(id: "login", text: issue.text, action: action))
         }
         if state.configSaveFailed {
             list.append(Issue(id: "config", text: StatusText(headline: "设置未保存", detail: "修改未生效，请重试"), action: nil))
