@@ -73,6 +73,19 @@ struct ConnectionTrackerTests {
         #expect(t.update(overlay, now: at(0.1)) == .connected(controllers: []))
     }
 
+    @Test("静默期内、截止时和过期后换控制端均可记录事件，不因日期比较崩溃",
+          arguments: [0.1, 5.0, 5.1])
+    func controllerChangesWithQuietDeadline(seconds: TimeInterval) {
+        var t = ConnectionTracker()
+        #expect(t.update(table("iPhone"), now: at(0)) == .connected(controllers: ["iPhone"]))
+        t.noteSelfInducedChange(at: at(0))
+        #expect(t.update(table("iPad"), now: at(seconds)) == .controllersChanged(["iPad"]))
+        #expect(t.isConnected)
+        #expect(t.controllers == ["iPad"])
+        // 断开也会记录同一个非空（但已经过期）的静默期截止时间。
+        #expect(t.update(none, now: at(seconds + 6)) == .disconnected)
+    }
+
     @Test("认出控制端后表格读不到、只剩推流：不断开、名字保留；停流后从最后一次在场起 1.5s 判断开")
     func captureAloneAfterNameKeepsName() {
         var t = ConnectionTracker()

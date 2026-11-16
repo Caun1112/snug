@@ -68,7 +68,12 @@ public struct ConnectionTracker: Sendable {
     /// 每次连接事件都留下信号快照，排查误判时才知道是哪一路信号在变
     private func log(_ what: String, _ signals: UUSignals, now: Date) {
         let since = lastPresentAt.map { String(format: "%.2f", now.timeIntervalSince($0)) } ?? "-"
-        let quiet = quietUntil.map { now <= $0 ? String(format: " 静默期剩 %.2fs", $0.timeIntervalSince(now)) : "" } ?? ""
+        let quiet = quietUntil.map { until in
+            // 部分 SDK 会把 Date <= 编译成弱链接调用；macOS 27.2 (26B5091g)
+            // 没有对应符号，记录连接变化时会跳到空地址。比较时间差避开该入口。
+            let remaining = until.timeIntervalSince(now)
+            return remaining >= 0 ? String(format: " 静默期剩 %.2fs", remaining) : ""
+        } ?? ""
         Log.info("\(what)（\(signals) 距上次在场 \(since)s\(quiet)）")
     }
 }

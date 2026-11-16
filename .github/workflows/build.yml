@@ -1,0 +1,45 @@
+name: Build and test macOS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test debug configuration
+        run: scripts/snug check
+      - name: Test optimized configuration
+        run: swift test -c release
+      - name: Build universal app
+        env:
+          MAC_SIGNING_IDENTITY: '-'
+        run: scripts/snug app
+      - name: Check Date comparison compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          nm -u build/Snug.app/Contents/MacOS/Snug > build/imports.txt
+          if grep -E '\$s10Foundation4DateV2(le|ge)oiy' build/imports.txt; then
+            echo 'Unexpected Date comparison symbol: unavailable on macOS 27.2 (26B5091g)'
+            exit 1
+          fi
+      - name: Package app
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent build/Snug.app "dist/Snug-$version.zip"
+          (cd dist && shasum -a 256 "Snug-$version.zip" > "Snug-$version.zip.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Snug-macOS
+          path: dist/*
+          if-no-files-found: error
